@@ -1,0 +1,375 @@
+---
+title: "Strings"
+format: html
+editor: visual
+---
+
+# Set up
+
+Let's load the Tidyverse and the speeches given by Pope Leo XIV, which we scraped from https://www.vatican.va/content/leo-xiv/en.html. We added missing data for demonstration purposes.
+
+```{r}
+library(tidyverse)
+speeches <- read_csv("data/speeches_pope_leoxiv_2025_07_22_with_na.csv")
+```
+
+# Strings
+
+Strings are a rather common data type. Think, for example, of first names, last names, and other common columns in surveys, administrative data, and other tabular data. Think also of open-ended survey responses and text data. Chances are you will encounter strings in your R journey.
+
+## Review
+
+If you're new-ish to R, here's a brief review of strings.
+
+```{r}
+"This is a string! 🙂"
+example_string <- "This is a string! 🙂"
+example_string
+```
+
+[`str_view`](https://stringr.tidyverse.org/reference/str_view.html) allows you to print the underlying representation of a string. Let's unpack what this means.
+
+You may remember that there are special characters in strings. For example, if you want to include a single or double quote inside of a string, you'd have to "escape it" with a `\`:
+
+```{r}
+"The instructor said \"this is important\""
+```
+
+However, you see that the printed representation of the string is not the same as the string itself. In this case, you see the `\"`, which are not in the string itself. `str_view` allows you to see the raw contents of the string:
+
+```{r}
+str_view("The instructor said \"this is important\"")
+```
+
+Now we see the actual string, not it's printed representation. There are other special characters, such as the newline (`\n`) character:
+
+```{r}
+"This is a string!\n🙂"
+example_string <- "This is a string!\n🙂"
+example_string
+str_view("This is a string!\n🙂")
+```
+
+Here, again, `str_view` allows you to see what the string actually "looks like for the computer."
+
+# Working with strings in the Tidyverse
+
+The [`stringr`](https://stringr.tidyverse.org/) package provides a set of functions to work with strings. `stringr` is particularly nice because it follows the same conventions as the Tidyverse and makes it easier to work with strings within data frames (or tibbles). This notebook mostly discusses functions within `stringr`.
+
+This notebook also mentions some functions (`separate_wider_delim`, `separate_longer_delim`) from [`tidyr`](https://tidyr.tidyverse.org/) that are specifically about working with strings in the process of creating tidy data.
+
+# Creating strings from data
+
+## `str_c`
+
+[`str_c`](https://stringr.tidyverse.org/reference/str_c.html) allows you to combined multiple character vectors into a single character vector. This could be useful, for example, if you have survey data and you want to combine first name and last name into one column.
+
+```{r}
+speeches %>% 
+  mutate(month_year = str_c(month, year)) %>% 
+  select(year, month, month_year)
+```
+
+If you want a space between month and year, you can add it explicitely:
+
+```{r}
+speeches %>% 
+  mutate(month_year = str_c(month, " ", year)) %>% 
+  select(year, month, month_year)
+```
+
+You can also use the `sep` argument:
+
+```{r}
+speeches %>% 
+  mutate(month_year = str_c(month, year, sep = " ")) %>% 
+  select(year, month, month_year)
+```
+
+## `str_glue`
+
+```{r}
+speeches %>% 
+  mutate(month_year = str_c(month, " ", year)) %>% 
+  select(year, month, month_year)
+```
+
+[`str_glue`](https://stringr.tidyverse.org/reference/str_glue.html) is similar to `str_c`, but allows you to use `glue` syntax.
+
+The [`glue` syntax](https://glue.tidyverse.org/) allows you to include R expressions inside of strings by using `{}`. This can make your code more readable.
+
+For example, below we're using `"{month} {year}"` to have the `month` and `year` variables inside of a string.
+
+```{r}
+speeches %>% 
+  mutate(month_year = str_glue("{month} {year}")) %>% 
+  select(year, month, month_year)
+```
+
+**Notice how `str_c` vs. `str_glue` treat missing values.** In `str_c`, if there is a missing value, the result is a missing value. This is the common behavior of the Tidyverse. In `str_glue`, as a result of using `glue`, if there is a missing value, the result is "NA" as a string.
+
+## TRY IT
+
+Create a column that puts together the `title` and the `text` separated by a ": ".
+
+```{r}
+
+```
+
+## `str_flatten`
+
+`str_c` and `str_glue` work well with `mutate` because their output is of the same length as their inputs. In contrast, `str_flatten` works well with `summarize` because it takes a character vector and combines each element of the vector into a single string.
+
+```{r}
+speeches %>% 
+  group_by(month) %>% 
+  summarize(urls_per_month = str_flatten(url, collapse = ", ")) %>% 
+  slice(1)
+```
+
+We get a missing value, because there is a missing value somewhere in the column. We can use `na.rm = TRUE`:
+
+```{r}
+speeches %>% 
+  group_by(month) %>% 
+  summarize(urls_per_month = str_flatten(url, collapse = ", ", na.rm = TRUE)) %>% 
+  slice(1)
+```
+
+```{r}
+speeches %>% 
+  group_by(month) %>% 
+  summarize(urls_per_month = str_flatten(url, collapse = ", ", na.rm = TRUE)) %>% 
+  slice(1) %>% 
+  pull(urls_per_month)
+```
+
+# Split strings to extract components
+
+## `separate_wider_delim`
+
+`separate_wider_delim` is similar to `pivot_wider` from `tidyr` in the sense that it makes the input data frame wider by generating new columns. (In contrast, `separate_longer_delim` is similar to `pivot_longer` from `tidyr` in the sense that it makes the input data frame longer by creating new rows.)
+
+```{r}
+speeches %>% 
+  separate_wider_delim(url,
+                       delim = "/",
+                       names = c("protocol", "nothing", "domain", "content", "pope", "language", "speeches", "year_url", "month_url", "documents", "date_title")) %>% 
+  select(protocol:date_title)
+```
+
+Of course, this requires knowing the columns ahead of time.
+
+```{r}
+speeches %>% 
+  separate_wider_delim(url, delim = "/", names_sep = "_") %>% 
+  select(starts_with("url"))
+```
+
+This requires that all values have the same structure.
+
+What if you don't know the number of components ahead of time and it varies across rows?
+
+1.  You can take a look at the `too_few` and `too_many` arguments.
+
+2.  You can use `str_split`, which provides more flexibility.
+
+## `str_split`
+
+[`str_split`](https://stringr.tidyverse.org/reference/str_split.html) allows you to split a string into pieces. This can be useful when you have a long string that includes a lot of components, each of which you want to treat as a variable in itself. For example, you could have a "name" column and you want to split first name and last name to, say, count the people who share a first name.
+
+```{r}
+speeches %>% 
+  mutate(url_parts = str_split(url, pattern = "/")) %>% 
+  slice(1) %>% 
+  pull(url_parts)
+```
+
+## `str_sub`
+
+[`str_sub`](https://stringr.tidyverse.org/reference/str_sub.html) allows you to extract or replace the elements at a single position in each string. This can be useful if what you want is only part of the string.
+
+```{r}
+speeches %>% 
+  separate_wider_delim(url,
+                       delim = "/",
+                       names = c("protocol", "nothing", "domain", "content", "pope", "language", "speeches", "year_url", "month_url", "documents", "date_title")) %>% 
+  mutate(date = str_sub(date_title, 1, 8)) %>% 
+  select(date)
+```
+
+```{r}
+speeches %>% 
+  separate_wider_delim(url,
+                       delim = "/",
+                       names = c("protocol", "nothing", "domain", "content", "pope", "language", "speeches", "year_url", "month_url", "documents", "date_title")) %>% 
+  mutate(date = str_sub(date_title, 1, 8),
+         year = str_sub(date, 1, 4),
+         month = str_sub(date, 5, 6),
+         day = str_sub(date, 7, 8)) %>% 
+  select(date, year, month, day)
+```
+
+## TRY IT
+
+Get only the name of the pope from the column `pope` in the code below (not the number).
+
+```{r}
+speeches %>% 
+  separate_wider_delim(url,
+                       delim = "/",
+                       names = c("protocol", "nothing", "domain", "content", "pope", "language", "speeches", "year_url", "month_url", "documents", "date_title"))
+
+```
+
+# Working with matches
+
+## Simple patterns
+
+Sometimes you want to search within strings. For example, say we want to search for the speeches that mention God. We could search, literally, for "God" (a **fixed string**).
+
+### `str_extract`
+
+[`str_extract`](https://stringr.tidyverse.org/reference/str_extract.html) extracts the first complete match from a string. Since we're searching exactly for "God" (a **fixed string**), we can use `fixed`.
+
+```{r}
+speeches %>% 
+  mutate(god_mentions = str_extract(text, pattern = fixed("God"))) %>% 
+  select(god_mentions)
+```
+
+### `regex` and `ignore_case = TRUE`
+
+But what if it's spelled "god"? Well, we could search for "God" or "god". In that case, instead of a fixed string (with `fixed`), we can use a regular expression (with `regex`).
+
+[Regular expressions](https://www.regular-expressions.info/quickstart.html) are a way to describe patterns in text.
+
+You can use regular expressions in the same way that you would use a simple string. For example, "god" is a regular expression that matches "god". We can also specify the argument `ignore_case = TRUE` within `regex` to ignore case:
+
+```{r}
+speeches %>% 
+  mutate(god_mentions = str_extract(text, pattern = regex("god", ignore_case = TRUE))) %>% 
+  select(god_mentions)
+```
+
+## More complex patterns
+
+But what if we want to search for something a bit more complicated? For example, say we are interested in peace. It could be "peace" or "Peace" or "peaceful" or "peacetime" or other variations. Instead of trying to come up with all the exact variations, slightly more complex regular expressions can help.
+
+For example, you can match both an uppercase and a lowercase "p" with `[Pp]`. You can thus use `[Pp]eace` for "peace" or "Peace". You can also use `\w*` to match zero or more "word characters" such as letters, digits, and underscores. In this sense, `[Pp]eac\w*` would match "peace", "Peace", "peaceful", and "peacetime".
+
+### `str_detect`
+
+Say we want know which rows talk about peace. We could use `str_detect` to create an indicator variable.
+
+Notice that instead of `[Pp]eac\w*`, we have to use `[Pp]eac\\w*`. That's because we need to escape the `\` character (as it generally is the case with strings in R):
+
+```{r}
+speeches %>% 
+  mutate(god_mentions = str_detect(text, pattern = regex("[Pp]eac\\w*"))) %>% 
+  select(god_mentions)
+```
+
+#### Raw strings
+
+Instead of escaping the `\`, we can use a [raw string](https://r4ds.hadley.nz/strings.html#sec-raw-strings), which usually starts with `r"(` and finishes with `)"`:
+
+```{r}
+speeches %>% 
+  mutate(god_mentions = str_detect(text, pattern = regex(r"([Pp]eac\w*)"))) %>% 
+  select(god_mentions)
+```
+
+### `str_extract_all`
+
+Let's think about a more complicated pattern such as citations of the Bible. Here are two examples of how the Bible is cited:
+
+“Hail, full of grace, the Lord is with you!” (Lk 1:28)
+
+“poured into our hearts through the Holy Spirit” (Rom 5:5)
+
+You can see that there's a pattern: <book abbreviation><space><chapter>:<verse>. We can use regular expressions to search within that string:
+
+-   `[A-Z]` matches a single capitalized letter.
+
+-   `[a-z]+` matches one or more lowercase letters.
+
+-   `[A-Z][a-z]+` thus matches a capitalized letter followed by one or more lowercase letters (e.g., "Rom").
+
+-   `\d+` matches one or more digits.
+
+-   `\s` matches a space.
+
+-   `\s?` matches an optional space.
+
+-   Together, `[A-Z][a-z]+\s?\d+:\d+` matches a single uppercase letter, followed by one or more lowercase letters, followed by an optional (`?`) space (`\s`), followed by one or more digits, followed by `:`, followed by one or more digits (e.g., `Lk 1:28`).
+
+[`str_extract_all`](https://stringr.tidyverse.org/reference/str_extract.html) extracts all matches from each string. Let's use that to extract all citations of the Bible:
+
+```{r}
+speeches %>% 
+  mutate(citations_bible = str_extract_all(text, pattern = r"([A-Z][a-z]+\s?\d+:\d+)")) %>% 
+  select(citations_bible)
+```
+
+This is not very useful. Notice it's a list. You can access individual cell contents like this:
+
+```{r}
+temp_data <- speeches %>% 
+  mutate(citations_bible = str_extract_all(text, pattern = r"([A-Z][a-z]+\s?\d+:\d+)"))
+
+temp_data$citations_bible[[1]]
+```
+
+Now this is a vector that you can use like any other vector. However, most likely you want to do computations over all the rows at once. We can use `pull` to extract the data:
+
+```{r}
+speeches %>% 
+  mutate(citations_bible = str_extract_all(text, pattern = r"([A-Z][a-z]+\s?\d+:\d+)")) %>% 
+  pull(citations_bible)
+```
+
+That's still a bit tricky to work with. We could also use `unnest` to have the data in long format, getting one row per citation:
+
+```{r}
+speeches %>% 
+  mutate(citations_bible = str_extract_all(text, pattern = r"([A-Z][a-z]+\s?\d+:\d+)")) %>% 
+  unnest(citations_bible) %>% 
+  select(citations_bible)
+```
+
+This is likely a format that you're more used to work with.
+
+There are other ways to work with the data that comes out of `str_extract_all`. You can loop or map over each row to do things with the data. However, this is outside of the scope of this notebook.
+
+### `str_replace_all`
+
+Say you want to "anonymize" citations of the Bible to have Theology students identify them. You can use `str_replace_all` or `str_remove_all`!
+
+[`str_replace_all`](https://stringr.tidyverse.org/reference/str_replace.html) allows you to replace all matches.
+
+```{r}
+speeches %>% 
+  mutate(text = str_replace_all(text, pattern = r"([A-Z][a-z]+\s?\d+:\d+)", replacement = "*****BIBLE CITATION*****")) %>%
+  slice(1) %>% 
+  pull(text)
+```
+
+### `str_remove_all`
+
+[`str_remove_all`](https://stringr.tidyverse.org/reference/str_remove.html) removes all matches.
+
+```{r}
+speeches %>% 
+  mutate(text = str_remove_all(text, pattern = r"([A-Z][a-z]+\s?\d+:\d+)")) %>%
+  slice(1) %>% 
+  pull(text)
+```
+
+## TRY IT
+
+Create a new column with an indicator variable **detect**ing whether a given speech seems to talk about "faith" (or "Faith" or "faithfull", etc.).
+
+```{r}
+
+```

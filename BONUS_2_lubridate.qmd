@@ -1,0 +1,198 @@
+---
+title: "Lubridate"
+format: html
+editor: visual
+---
+
+# Setup
+
+Let's load the Tidyverse and the speeches given by Francis, which we scraped from https://www.vatican.va/content/francesco/en.html. We're adding a date column for this notebook.
+
+```{r}
+library(tidyverse)
+speeches <- read_csv("data/speeches_pope_francesco_2025_07_23.csv")
+
+speeches <- speeches %>%
+  # Getting only the URL column
+  select(url) %>% 
+  # Getting a date column
+  mutate(date = str_extract(url, pattern = "\\d{8}"))
+
+speeches
+```
+
+We want to plot the number of speeches given by Pope Francis for each quarter.
+
+# Lubridate
+
+You can often get dates in survey, administrative, and other tabular data, as well as timestamps in "digital data." `lubridate` makes it easier to work with date-times in R.
+
+# Parsing strings into datetimes
+
+```{r}
+summary(speeches)
+```
+
+Notice that date is a string. Often, if you use `read_csv`, date-times will be correctly read as date-times. But that's not always the case, for example, here, because we extracted the data from a string. In those cases, you'll want to parse the string into a date-time so that R knows that you're working with datetimes. This is important when you want to do operations over dates or when you want to plot dates.
+
+## `ymd`
+
+To parse a string as a datetime, you need to know the format of the date.
+
+```{r}
+speeches %>% 
+  select(date) %>% 
+  slice(1)
+```
+
+Here, the format is yyyy-mm-dd, so we'll use the `ymd` function. This is just an example. Depending on the components that you have (year, month, day, hour, minute, second), you can use [other functions such as `mdy` or `ymd_hms`](https://lubridate.tidyverse.org/reference/index.html).
+
+```{r}
+speeches %>% 
+  mutate(date = ymd(date)) %>% 
+  select(date)
+```
+
+## TRY IT
+
+Complete the code below to parse the column `date` into a datetime.
+
+```{r}
+speeches %>% 
+  mutate(date = str_sub(date, start = 1, end = 6)) %>% 
+  select(date)
+```
+
+# Getting components out of datetimes
+
+Once you have a datetime, you may want to extract each of its components. Often, you want to do this to aggregate the data for particular time periods. For example, in this case we want to get the number of speeches for each quarter, so we need to get at least the year and the quarter. Of course, as in the case of parsing strings into datetimes, there are [functions to extract year, month, day, hour, minute, and second](https://lubridate.tidyverse.org/reference/index.html).
+
+```{r}
+speeches %>% 
+  mutate(date = ymd(date),
+         year = year(date),
+         quarter = quarter(date),
+         month = month(date),
+         yday = yday(date),
+         mday = mday(date),
+         wday = wday(date)) %>% 
+  select(-url)
+```
+
+# Aggregating the data
+
+We already have different date components, including the year and the quarter. However, to plot the number of speeches given by Pope Francis for each quarter, we need to aggregate the data. In other words, we need to count the number of speeches (rows) for each year, for each quarter. Then we can plot that count against time.
+
+In the code below, we're putting together the year and the quarter with `str_glue` (`str_glue` uses the [`glue` syntax](https://glue.tidyverse.org/), which allows you to include R expressions inside of strings by using `{}`). Then, we're converting that character variable into a datetime object using `yq`, since we only care about the **y**ear and the **q**uarter. After that, we're grouping by each year-quarter and counting the number of speeches/rows. Finally, we're ungroupping the data.
+
+```{r}
+speeches_summary <- speeches %>% 
+  mutate(date = ymd(date),
+         year = year(date),
+         quarter = quarter(date),
+         year_quarter_chr = str_glue("{year} Q{quarter}"),
+         year_quarter_dt = yq(year_quarter_chr)) %>% 
+  group_by(year_quarter_dt) %>% 
+  summarize(num_speeches = n()) %>% 
+  ungroup() 
+
+speeches_summary
+```
+
+Now we have the data in such a way that we can plot the number of speeches given by Pope Francis for each quarter.
+
+## TRY IT
+
+Instead of aggregating for every quarter, as in the code above, aggregate for every semester.
+
+```{r}
+
+```
+
+# BONUS -- Plot
+
+## Basic plot
+
+```{r}
+ggplot(speeches_summary, aes(x = year_quarter_dt, y = num_speeches)) + 
+  geom_line()
+```
+
+We have our plot! We could stop here. However, notice that the x axis is not particularly easy to interpret. Also, there seems to be a difference in the mean number of speeches before and after the pandemic. It could be interesting to point that out.
+
+## Improved plot
+
+### Dealing with the x axis
+
+Let's use `scale_x_date` to specify how often we want the breaks and how we want to label them.
+
+```{r}
+ggplot(speeches_summary, aes(x = year_quarter_dt, y = num_speeches)) + 
+  geom_line() +
+  scale_x_date(date_breaks = "6 months", 
+               labels = function(x) str_glue("{year(x)} Q{quarter(x)}"))
+```
+
+We have more detail, but it's unreadable. Let's rotate the labels.
+
+```{r}
+ggplot(speeches_summary, aes(x = year_quarter_dt, y = num_speeches)) + 
+  geom_line() +
+  scale_x_date(date_breaks = "6 months", 
+               labels = function(x) str_glue("{year(x)} Q{quarter(x)}")) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+### Adding the mean number of speeches before and after the pandemic
+
+Let's first calculate the means. Notice that we're using `between` and we're using dates by using `ymd`.
+
+```{r}
+mean_1 <- speeches_summary %>% 
+  filter(between(year_quarter_dt, ymd('20140101'), ymd('20191231'))) %>% 
+  select(num_speeches) %>% 
+  pull() %>% 
+  mean()
+
+mean_1
+```
+
+```{r}
+mean_2 <- speeches_summary %>% 
+  filter(between(year_quarter_dt, ymd('20220101'), ymd('20241231'))) %>% 
+  select(num_speeches) %>% 
+  pull() %>% 
+  mean()
+
+mean_2
+```
+
+There does seem to be a difference. Let's add it to the plot using `annotate`.
+
+```{r}
+ggplot(speeches_summary, aes(x = year_quarter_dt, y = num_speeches)) + 
+  geom_line() +
+  annotate(geom = "segment", 
+           y = mean_1, 
+           x = ymd('20140101'), 
+           xend = ymd('20191231'), 
+           color = "blue") +
+  annotate(geom = "segment", 
+           y = mean_2, 
+           x = ymd('20220101'), 
+           xend = ymd('20241231'), 
+           color = "red") +
+  annotate(geom = "text", 
+           y = mean_1 + 10, 
+           x = ymd('20160830'), 
+           label = mean_1, 
+           color = "blue") +
+  annotate(geom = "text", 
+           y = mean_2 + 15, 
+           x = ymd('20230630'), 
+           label = mean_2, 
+           color = "red") +
+  scale_x_date(date_breaks = "6 months", 
+               labels = function(x) str_glue("{year(x)} Q{quarter(x)}")) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```

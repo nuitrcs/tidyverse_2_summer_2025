@@ -1,0 +1,37 @@
+---
+title: "Working with common data types"
+format: html
+editor: visual
+---
+
+# R packages for common data types
+
+A lot of people use R for a lot of things. One of the advantages of R is that, because it's open-source, people have developed packages to work with different data types and accomplish all sorts of tasks. You can find appropriate packages for your work by talking to colleagues in your field, searching online, and submitting a [free research data services consult request](https://app.smartsheet.com/b/form/2f2ec327e6164f83b588b7bbe2e2b56f).
+
+## Within the Tidyverse
+
+The [Tidyverse has packages](https://www.tidyverse.org/packages/) to work with some of the most common data types:
+
+-   Factors \> [`forcats`](https://forcats.tidyverse.org/)
+-   Strings \> [`stringr`](https://stringr.tidyverse.org/)
+-   Datetimes \> [`lubridate`](https://lubridate.tidyverse.org/) and [`hms`](https://hms.tidyverse.org/)
+-   Web \> [`rvest`](https://rvest.tidyverse.org/) and [`httr2`](https://httr2.r-lib.org/)
+-   Databases \> [`dbplyr`](https://dbplyr.tidyverse.org/index.html)
+-   SPSS, Stata, and SAS data \> [`haven`](https://haven.tidyverse.org/)
+-   Excel data \> [`readxl`](https://readxl.tidyverse.org/)
+-   Google Sheets via the Sheets API v4 \> [`googlesheets4`](https://googlesheets4.tidyverse.org/)
+-   Google Drive \> [`googledrive`](https://googledrive.tidyverse.org/)
+-   XML data \> [`xml2`](https://xml2.r-lib.org/)
+-   Binary data \> [`blob`](https://blob.tidyverse.org/)
+
+## Geospatial data
+
+Thanks to [Méch Frazier, GIS Specialist at the Northwestern Libraries,](https://www.library.northwestern.edu/research/scholarly/geospatial-and-data-services.html) for sending these resources.
+
+-   Vector data (points, lines, and polygons) \> [`sf`](https://r-spatial.github.io/sf/)
+-   Raster data (and vector, if needed) \> [`terra`](https://rspatial.github.io/terra/)
+
+## Others
+
+-   JSON \> [`jsonlite`](https://github.com/jeroen/jsonlite)
+-   Genomics \> [Bioconductor](https://www.bioconductor.org/)

@@ -1,0 +1,68 @@
+---
+title: "Bind"
+format: html
+editor: visual
+---
+
+# Set up
+
+Let's load the Tidyverse and some data.
+
+```{r}
+library(tidyverse)
+cen_county <- read_csv("data/cen_county_dirty.csv") 
+```
+
+# Adding rows and columns
+
+Let's cover adding rows or columns to a data frame.
+
+`{dplyr}`, a core package of the Tidyverse, includes `bind_rows` and `bind_cols`, which are roughly equivalent to base R `rbind` and `cbind`, but they are a bit easier to work with.
+
+To demonstrate, let's create some subsets of the data to work with first:
+
+```{r, eval=TRUE}
+illinois <- filter(cen_county, geoid == "17") %>% 
+  select(1:4)
+wisconsin <- filter(cen_county, geoid == "55") %>% 
+  select(1:2, 5:6)
+```
+
+```{r}
+illinois
+wisconsin
+```
+
+We have some overlap in the column names, but the set of columns doesn't match exactly. To combine these datasets, we want to bind the rows (each is a county) together:
+
+```{r, eval=TRUE}
+# just printing, not saving...
+bind_rows(illinois, wisconsin)
+```
+
+`bind_rows` includes all columns the exist in either dataset and fills in missing values with `NA`. It matches columns by full name. If we tried this with `rbind`, we'd get an error, because the set of columns doesn't match.
+
+## TRY IT
+
+Add the rows of `govdata95`, `govdata96`, `govdata97`.
+
+```{r}
+govdata <- read_csv("data/gov_env.csv")
+
+govdata95 <- filter(govdata, year == 1995)
+govdata96 <- filter(govdata, year == 1996)
+govdata97 <- filter(govdata, year == 1997)
+
+```
+
+# Binds in practice
+
+**When would you really do this?**
+
+Maybe you have separate data files for each year of data, and you need to combine them. Or for each school, or state, or experiment iteration. Any case where the set of **variables** is **similar across multiple data sets** that all have the same unit of observation (rows are the same type of thing across data sets and you have similar variables).
+
+For **adding columns**, we'd need to make sure that **both data frames have the same number of rows** and they appear in the same order. Generally, you don't want to `bind_cols`. If you have some column that identifies observations in each data frame, you'll want to join the datasets together instead. If you are just trying to add a few columns of data, use `mutate`, a function from `dplyr`.
+
+**Why use join instead of `bind_cols`?**
+
+While it does happen, it's dangerous to have multiple data sets with the same set of rows without some ID variable -- where they're just matched by the order of the rows; it's too easy for the matching between datasets to get messed up.

@@ -1,0 +1,136 @@
+---
+title: "Factors (forcats)"
+format: html
+editor: visual
+---
+
+# Setup
+
+Let's load `tidyverse` and read some data.
+
+```{r}
+library(tidyverse)
+healthdata <- read_csv("data/nhanes.csv")
+```
+
+# Introduction to forcats
+
+Factors are commonly used in R for categorical variables, which have a fixed and known set of possible values.
+
+`forcats` provides a set of functions that makes it easier to work with factors, such as modifying their order and levels.
+
+This is often useful when creating tables and visualizations.
+
+## Modifying factor order
+
+One of the common things that you may want to do is modify the order of the levels of a factor to make a table or a visualization make more sense.
+
+Sometimes, the factor has a "natural" order, for example, in a scale, say, that goes from "Strongly disagree" to "Strongly agree".
+
+Other times, however, you may want to organize the levels according to how common they are or how they rank in terms of another variable. `forcats` provides several functions for this.
+
+### `fct_infreq`
+
+[`fct_infreq`](https://forcats.tidyverse.org/reference/fct_inorder.html) changes the order of the levels by the number of observations in each level (largest first).
+
+```{r}
+ggplot(healthdata, aes(x = marital_status)) +
+  geom_bar()
+```
+
+```{r}
+ggplot(healthdata, aes(x = fct_infreq(marital_status))) +
+  geom_bar()
+```
+
+### `fct_rev`
+
+[`fct_rev`](https://forcats.tidyverse.org/reference/fct_rev.html) reverses the order of factor levels.
+
+```{r}
+ggplot(healthdata, aes(x = fct_rev(fct_infreq(marital_status)))) +
+  geom_bar()
+```
+
+### `fct_reorder`
+
+[`fct_reorder`](https://forcats.tidyverse.org/reference/fct_reorder.html) reorders factor levels by sorting along another variable:
+
+```{r}
+healthdata %>% 
+  group_by(marital_status) %>%
+  mutate(mean_cholesterol = mean(cholesterol, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = mean_cholesterol, y = marital_status)) +
+  geom_point()
+```
+
+```{r}
+healthdata %>% 
+  group_by(marital_status) %>%
+  mutate(mean_cholesterol = mean(cholesterol, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = mean_cholesterol, y = fct_reorder(marital_status, mean_cholesterol))) +
+  geom_point()
+```
+
+### TRY IT
+
+Modify the order of `work_status` so that the most frequent category is on the left side of the plot.
+
+```{r}
+ggplot(healthdata, aes(x = work_status)) +
+  geom_bar()
+```
+
+## Modifying factor levels
+
+Other times, instead of (or in addition to) modifying the order of the levels of a factor, you may want to modify the levels themselves.
+
+For example, you may have some categories that are very rare in your data and you want to combine them into "Other" or something similar. `forcats` provides some functions for that.
+
+### `fct_recode`
+
+[`fct_recode`](https://forcats.tidyverse.org/reference/fct_recode.html) allows you to change factor levels by hand.
+
+```{r}
+healthdata %>% 
+  select(education) %>% 
+  table()
+```
+
+```{r}
+healthdata %>% 
+  mutate(education = fct_recode(education,
+                                "less than college" = "8th Grade",
+                                "less than college" = "9 - 11th Grade",
+                                "less than college" = "High School",
+                                "less than college" = "Some College",
+                                "college" = "College Grad")) %>% 
+  select(education) %>% 
+  table()
+```
+
+### `fct_collapse`
+
+[`fct_collapse`](https://forcats.tidyverse.org/reference/fct_collapse.html) allows you to collapse factor levels into manually defined groups. While you could use `fct_recode` for this, if you want to collapse several categories into a few, the syntax of `fct_collapse` is simpler:
+
+```{r}
+healthdata %>% 
+  mutate(education = fct_collapse(education,
+                                  "less than college" = c("8th Grade", 
+                                                          "9 - 11th Grade", 
+                                                          "High School", 
+                                                          "Some College"),
+                                  "college" = "College Grad")) %>% 
+  select(education) %>% 
+  table()
+```
+
+### TRY IT
+
+Modify the levels of `marital_status` so that the categories are "Ever married" (including "Divorced", "Married", "Separated", and "Widowed") and "Never married" (including "LivePartner" and "NeverMarried").
+
+```{r}
+
+```

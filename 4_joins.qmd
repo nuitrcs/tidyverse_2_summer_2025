@@ -1,0 +1,288 @@
+---
+title: "Joins"
+format: html
+editor: visual
+---
+
+# Setup
+
+Let's load the Tidyverse and some data.
+
+```{r}
+library(tidyverse)
+acs_state <- read_csv("data/acs_state_dirty.csv") 
+acs_county <- read_csv("data/acs_county_dirty.csv") 
+cen_state <- read_csv("data/cen_state_dirty.csv")
+cen_county <- read_csv("data/cen_county_dirty.csv") 
+```
+
+# Joins
+
+**Note**: the equivalent function for joining in base R is `merge()`.
+
+## Keys
+
+Joins work when you have two data frames, and you want to merge them together. Each data set needs to have some type of identifier, a key, that tells you how a row in data set 1 should be matched into data set 2.
+
+There can also be cases where the combination of two different variables is the "key" -- where both columns need to match for the data sets to be joined correctly.
+
+```{r, eval=TRUE}
+names(cen_state) # The key is geoid, which uniquely identifies each state/row
+names(cen_county) # The key is a combination of geoid, which uniquely identifies each state, and cnty_id, which uniquely identify each county within a state. As such, the combination of geoid and cnty_id uniquely identifies each row
+
+names(acs_state) # The key is geoid, which uniquely identifies each state/row
+names(acs_county) # The key is a combination of state_id, which uniquely identifies each state, and county_id, which uniquely identify each county within a state. As such, the combination of state_id and county_id uniquely identifies each row
+
+nrow(cen_state)
+nrow(cen_county)
+
+nrow(acs_state)
+nrow(cen_county)
+```
+
+For example, for the state-level datasets, let's look at a state that exists in both data sets:
+
+```{r}
+filter(cen_state, geoid == "17")
+filter(acs_state, geoid == "17")
+```
+
+For the county-level datasets, let's look at a county that exists in both data sets:
+
+```{r}
+filter(cen_county, geoid == "17" & cnty_id == "031")
+filter(acs_county, state_id == "17" & county_id == "031")
+```
+
+Notice that if we don't specify both columns in the county-level data, the row is not uniquely identified:
+
+```{r}
+filter(cen_county, geoid == "17")
+filter(cen_county, cnty_id == "031")
+
+filter(acs_county, state_id == "17")
+filter(acs_county, county_id == "031")
+```
+
+We want to combine the different variables from the various data frames together. We can't just bind the columns together though, because some data sets are at the state level and others at the county level, as well as because the set of counties in the county-level data sets are not the same (some counties are missing in each of the two data sets).
+
+### Dirty keys
+
+There is also a more complicated case where you don't have clean "key" variables but you still want to join two data sets. This requires fuzzy or approximate matching using variables in the two data sets, which is beyond the scope of what we can cover today. A case where this might happen is when you have country names (not ISO codes), and variants such as DRC vs. Democratic Republic of the Congo vs. Congo, DR (yes, this happens regularly).
+
+Today, we're assuming there is some clean key to match on where values match exactly.
+
+## TRY IT
+
+Import data about degrees awarded at Northwestern. What column(s) can be used as a key to join the datasets together?
+
+Note: this isn't a code answer - read in the data and take a look at the data frames to see what's common in them.
+
+```{r}
+bac <- read_csv("data/bac_schools.csv")
+masters <- read_csv("data/masters_schools.csv")
+doc <- read_csv("data/doc_schools.csv")
+
+```
+
+## Types of joins
+
+There are different ways to match up rows in two data sets. They vary based on what happens to rows that don't match to the other data set (where the key from one data set isn't present in the other).
+
+An **inner** join only includes in the result rows that matched in both data sets.
+
+A **left** join includes all rows from the first (left) data set, filling in missing values where there isn't a match in the second data set (right).
+
+A **right** join does the opposite: keeps all rows from the second (right) data set, and fills in missing values where there isn't a match in the fist.
+
+An **outer** join keeps all rows from both data sets, filling in missing values where there aren't matches.
+
+An **anti**-join helps you find rows in a data set that do NOT match to another.
+
+## Relationship expected between the keys of the data sets
+
+The keys of the two data sets that you are joining can have different relationships.
+
+In a **"one-to-one"** relationship, each row in data set 1 should match at most 1 row in data set 2 and vice versa.
+
+In a **"one-to-many"** relationship, each row in data set 1 can match more than 1 row in data set 2, but each row in data set 2 can only match to 1 row in data set 1.
+
+In a **"many-to-one"** relationship, each row in data set 1 can only match to 1 row in data set 2, but each row in data set 2 can match more than 1 row in data set 1.
+
+In a **"many-to-many-"** relationship, each row in data set 1 can match more than 1 row in data set 2 and vice versa. (Although this last one can get messy! So much so, that `dplyr` will warn you when it happens).
+
+By default, `dplyr` doesn't expect there to be any particular relationship between the keys of the two data sets. If you want `dplyr` to enforce a particular relationship, you need to specify it using the `relationship` argument. It's a good idea to do this.
+
+## Joins with `dplyr`
+
+Each of the join types is a different function in `dplyr`: `inner_join()`, `left_join()`, `right_join()`, `full_join()` (the last one is an outer join). You use them all in the same way.
+
+```{r}
+left_join(cen_state, cen_county, by="geoid")
+```
+
+The first input is the "left" table. The second is the "right." The `by` is telling it what key to use to join -- in this case, there's a column with the same name in both data frames that should be used to match up rows.
+
+Note above and also below, we're just joining and printing the resulting data frame. You could save the output (the resulting data frame) in a new variable though:
+
+```{r}
+cen_combined <- left_join(cen_state, cen_county, by="geoid")
+```
+
+In this case, we should expect a "one-to-many" relationship because one state can match to several counties. As such, we can specify `relationship = "one-to-many"`.
+
+```{r}
+cen_combined <- left_join(cen_state, cen_county, by="geoid", relationship = "one-to-many")
+```
+
+### Variations on by
+
+If we don't tell `{dplyr}` what the key variables are to use to join the tables, it will default to trying to join on any columns with the same name across data frames:
+
+```{r}
+left_join(cen_state, cen_county)
+```
+
+And tell us what it joined by in the output.
+
+**You don't want to do this!** It's best to be explicit about how you want to join the tables. Just because two columns have the same name, doesn't mean all of the data is the same!
+
+**Something to always watch out for!** It's usually best to join using the minimal set of columns needed to identify the correct matches.
+
+#### Joining on columns with different names
+
+In the `acs*` data frames, the name of the column with the state code is different:
+
+```{r}
+names(acs_state)
+names(acs_county)
+```
+
+To join with that, we use a named vector with `by`, with the form `c("Name in first data set"="Name in second data set")`:
+
+```{r}
+left_join(acs_state, acs_county, by=c("geoid"="state_id"))
+```
+
+Here, where the column names are different, it just keeps one copy of the joining key column, and uses the column name from the first (left) data set.
+
+#### Joining on multiple columns
+
+We can also join on multiple columns, where each pair of columns we specify needs to match. We can require multiple columns to match by supplying a vector of names:
+
+```{r}
+left_join(cen_county, acs_county, by=c("geoid" = "state_id", "cnty_id" = "county_id", "county" = "county_name"))
+```
+
+This gives us a cleaner result without duplicate rows. But make sure that the values in these columns really should all match -- if not, you'll be missing matches.
+
+In this case, we expect a "one-to-one" relationship because each county should match to only one county, so we can specify `relationship = "one-to-one"`:
+
+```{r}
+left_join(cen_county, acs_county, by=c("geoid" = "state_id", "cnty_id" = "county_id", "county" = "county_name"), relationship = "one-to-one")
+```
+
+## TRY IT
+
+Join (`left_join`) the `acs_state` data frame (left) to the `cen_state` data frame (right). Try doing it using only `geoid` and using both `geoid` and `name`.
+
+```{r}
+
+```
+
+## TRY IT
+
+Join the `bac`, `masters`, and `doc` data frames imported above into a single data frame.
+
+You can string together multiple join commands with %\>%
+
+```{r}
+
+```
+
+## Unmatched Rows
+
+### `anti_join`
+
+A left join keeps all of the rows in the first data set, whether or not they match a row in the second. How do we find rows that didn't match?
+
+You can use `anti_join()` to find rows in one (the first) data frame that don't match to a row in the second:
+
+```{r}
+anti_join(cen_county, acs_county, 
+          by=c("geoid" = "state_id", "cnty_id" = "county_id"))
+```
+
+```{r}
+anti_join(acs_county, cen_county, 
+          by=c("state_id" = "geoid", "county_id" = "cnty_id"))
+```
+
+### In the context of the joined data frame
+
+If, instead of seeing the non-matching rows separately, you want to see which ones didn't match in the context of the joined data frame, you can look for missing values in the joined columns.
+
+```{r}
+left_join(cen_county, acs_county, 
+          by=c("geoid" = "state_id", "cnty_id" = "county_id")) %>% 
+  filter(is.na(pop_over65))
+```
+
+Beware though, because if there are legitimately missing values in the column you check, then you'll get mixed results here.
+
+## TRY IT
+
+Find the rows in `acs_state` that don't have a match in `cen_state`.
+
+```{r}
+
+```
+
+## Beware Missing Values
+
+Missing values: **by default, `{dplyr}` matches missing (`NA`) as if it is a value.** So if we have two data frames, and there are missing values in our key id variables, then they will match, even if there are multiple `NA`s.
+
+```{r}
+cen_county %>% 
+  filter(is.na(cnty_id))
+```
+
+```{r}
+acs_county %>% 
+  filter(is.na(county_id))
+```
+
+```{r}
+left_join(cen_county, acs_county, by = c("geoid" = "state_id", "cnty_id" = "county_id")) %>% 
+  filter(is.na(geoid)) %>% 
+  select(county, total_pop_cen, pop_under5)
+```
+
+### `na_matches="never"`
+
+If we want this to not happen, we can set the `na_matches` argument to "never"
+
+```{r}
+left_join(cen_county, acs_county, by = c("geoid" = "state_id", "cnty_id" = "county_id"), na_matches = "never") %>% 
+  filter(is.na(geoid))
+```
+
+That's probably a good idea. **In any case, you'd want to make sure you fully understand your keys before doing any joins.**
+
+### Warnings
+
+Sometimes, R will warn you that there there might be a problem.
+
+```{r}
+left_join(cen_county, acs_county, by = c("geoid" = "state_id", "cnty_id" = "county_id"))
+```
+
+Notice the warning. What it means is that there's more than one row in the first data set that matches to the same row in the second data set AND there are rows in the first data set that each match to multiple rows in the second data set.
+
+This can be legitimate, but it's something you'd always want to check to confirm that the behavior is correct.
+
+If you expect a "many-to-many" relationships, it would be a good idea to specify it using `relationship = "many-to-many"`:
+
+```{r}
+left_join(cen_county, acs_county, by = c("geoid" = "state_id", "cnty_id" = "county_id"), relationship = "many-to-many")
+```
